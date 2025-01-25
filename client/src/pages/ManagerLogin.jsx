@@ -9,6 +9,8 @@ import {
   InputAdornment,
   IconButton,
   Paper,
+  Alert,
+  useTheme,
 } from "@mui/material";
 import {
   Person,
@@ -19,14 +21,20 @@ import {
   KeyboardArrowRight,
   ArrowBack,
 } from "@mui/icons-material";
+import { alpha } from "@mui/material/styles";
+
+const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
 const ManagerLogin = () => {
+  const theme = useTheme();
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     username: "",
     password: "",
   });
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
     setFormData({
@@ -35,9 +43,37 @@ const ManagerLogin = () => {
     });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("Manager login attempt:", formData);
+    setError("");
+    setLoading(true);
+
+    try {
+      const response = await fetch(`${API_URL}/api/auth/manager/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Giriş başarısız");
+      }
+
+      // Save token and manager data
+      localStorage.setItem("token", data.data.token);
+      localStorage.setItem("manager", JSON.stringify(data.data.manager));
+
+      // Redirect to manager dashboard
+      navigate("/manager/dashboard");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -129,6 +165,12 @@ const ManagerLogin = () => {
                     Yönetici hesabınıza giriş yaparak sistemi yönetin
                   </Typography>
 
+                  {error && (
+                    <Alert severity="error" sx={{ mb: 3 }}>
+                      {error}
+                    </Alert>
+                  )}
+
                   <form onSubmit={handleSubmit} className="space-y-6">
                     <TextField
                       fullWidth
@@ -187,10 +229,10 @@ const ManagerLogin = () => {
                       fullWidth
                       variant="contained"
                       size="large"
+                      disabled={loading}
                       className="login-button bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 group transform hover:scale-[1.02] transition-all duration-300"
                     >
-                      <span className="mr-2">Giriş Yap</span>
-                      <KeyboardArrowRight className="transition-transform group-hover:translate-x-1" />
+                      {loading ? "Giriş Yapılıyor..." : "Giriş Yap"}
                     </Button>
 
                     <Box className="flex items-center justify-center pt-4">

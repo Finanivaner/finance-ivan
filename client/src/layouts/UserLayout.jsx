@@ -14,6 +14,7 @@ import {
   ListItemText,
   Drawer,
   Divider,
+  alpha,
 } from "@mui/material";
 import {
   Dashboard,
@@ -30,6 +31,7 @@ import {
   LocalShipping,
   Share,
 } from "@mui/icons-material";
+import SharePost from "../components/posts/SharePost";
 
 const DRAWER_WIDTH = 280;
 
@@ -84,16 +86,6 @@ const UserLayout = () => {
       text: "Raporlar",
       icon: <Assessment />,
       path: "/dashboard/reports",
-    },
-    {
-      text: "Tüm İşlemler",
-      icon: <History />,
-      path: "/dashboard/transactions",
-    },
-    {
-      text: "Gönderi Paylaş",
-      icon: <Share />,
-      path: "/dashboard/share-post",
     },
     {
       text: "Profil",
@@ -188,6 +180,11 @@ const UserLayout = () => {
             Doğrulanmış Kullanıcı
           </Typography>
         </Box>
+      </Box>
+
+      {/* Share Post Section */}
+      <Box sx={{ p: 2 }}>
+        <SharePost />
       </Box>
 
       {/* Navigation Menu */}

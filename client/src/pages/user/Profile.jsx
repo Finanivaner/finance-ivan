@@ -70,16 +70,16 @@ const Profile = () => {
 
     setLoading(true);
     try {
-      const userData = JSON.parse(localStorage.getItem("userData"));
+      const token = localStorage.getItem("token");
       await axios.put(
-        `${API_URL}/api/user/password`,
+        `${API_URL}/api/users/password`,
         {
           currentPassword: passwordData.currentPassword,
           newPassword: passwordData.newPassword,
         },
         {
           headers: {
-            Authorization: `Bearer ${userData.token}`,
+            Authorization: `Bearer ${token}`,
           },
         }
       );

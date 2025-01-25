@@ -26,4 +26,7 @@ router.get("/users/:userId/transactions", adminController.getUserTransactions);
 // Dashboard stats
 router.get("/dashboard", adminController.getDashboardStats);
 
+// Reports
+router.get("/reports", adminController.getReports);
+
 module.exports = router;

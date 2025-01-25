@@ -2,6 +2,7 @@ const jwt = require("jsonwebtoken");
 const config = require("../config/config");
 const User = require("../models/user.model");
 const Admin = require("../models/Admin");
+const Manager = require("../models/manager.model");
 const { createError } = require("../utils/error");
 
 /**
@@ -9,51 +10,51 @@ const { createError } = require("../utils/error");
  */
 exports.protect = async (req, res, next) => {
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer")) {
-      return next(
-        createError(401, "Yetkilendirme başarısız. Lütfen giriş yapın.")
-      );
-    }
-
-    const token = authHeader.split(" ")[1];
+    // Get token from header
+    const token = req.header("Authorization")?.replace("Bearer ", "");
     if (!token) {
-      return next(
-        createError(401, "Yetkilendirme başarısız. Lütfen giriş yapın.")
-      );
+      return next(createError(401, "Lütfen giriş yapın"));
     }
 
-    try {
-      const decoded = jwt.verify(token, config.JWT_SECRET);
-
-      // Get user from database - check both User and Admin models
-      let user;
-      if (decoded.role === "admin") {
-        user = await Admin.findById(decoded.id);
-      } else {
-        user = await User.findById(decoded.id);
-      }
-
-      if (!user) {
-        return next(createError(401, "Bu token'a ait kullanıcı bulunamadı."));
-      }
-
-      // Add user to request
-      req.user = user;
-      next();
-    } catch (err) {
-      if (err.name === "JsonWebTokenError") {
-        return next(createError(401, "Geçersiz token."));
-      }
-      if (err.name === "TokenExpiredError") {
-        return next(
-          createError(401, "Oturum süresi doldu. Lütfen tekrar giriş yapın.")
-        );
-      }
-      throw err;
+    // Verify token
+    const decoded = jwt.verify(token, config.JWT_SECRET);
+    if (!decoded) {
+      return next(createError(401, "Geçersiz token"));
     }
+
+    // Get user based on role
+    let user;
+    const userId = decoded.id || decoded._id;
+
+    if (decoded.role === "admin") {
+      user = await Admin.findById(userId);
+    } else if (decoded.role === "manager") {
+      user = await Manager.findById(userId);
+    } else {
+      user = await User.findById(userId);
+    }
+
+    if (!user) {
+      return next(createError(401, "Token'a ait kullanıcı bulunamadı"));
+    }
+
+    // Check if user is active
+    if (!user.isActive) {
+      return next(createError(401, "Hesabınız pasif durumdadır"));
+    }
+
+    // Add user and role to request
+    req.user = user;
+    req.role = decoded.role || user.role;
+    next();
   } catch (error) {
-    next(createError(500, "Yetkilendirme hatası."));
+    if (error.name === "JsonWebTokenError") {
+      return next(createError(401, "Geçersiz token"));
+    }
+    if (error.name === "TokenExpiredError") {
+      return next(createError(401, "Oturum süresi doldu"));
+    }
+    next(error);
   }
 };
 
@@ -62,9 +63,12 @@ exports.protect = async (req, res, next) => {
  */
 exports.authorize = (...roles) => {
   return (req, res, next) => {
-    if (!roles.includes(req.user.role)) {
+    if (!req.user.role || !roles.includes(req.user.role)) {
       return next(
-        createError(403, `${req.user.role} rolü bu işlem için yetkili değil.`)
+        createError(
+          403,
+          `${req.user.role || "Bilinmeyen"} rolü bu işlem için yetkili değil.`
+        )
       );
     }
     next();

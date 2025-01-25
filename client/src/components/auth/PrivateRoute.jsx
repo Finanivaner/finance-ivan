@@ -17,6 +17,19 @@ const PrivateRoute = ({ children }) => {
     );
   }
 
+  // Handle admin routes
+  if (location.pathname.startsWith("/admin")) {
+    if (userData.role !== "admin") {
+      return (
+        <Navigate
+          to="/"
+          state={{ message: "Bu sayfaya erişim yetkiniz yok." }}
+          replace
+        />
+      );
+    }
+  }
+
   // Special handling for verification page
   if (location.pathname === "/verification") {
     // Only allow access if user is not verified and status is pending

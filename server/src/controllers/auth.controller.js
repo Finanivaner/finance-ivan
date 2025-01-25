@@ -5,6 +5,8 @@ const Admin = require("../models/Admin");
 const config = require("../config/config");
 const logger = require("../utils/logger");
 const AppError = require("../utils/appError");
+const Manager = require("../models/manager.model");
+const { createError } = require("http-errors");
 
 // Generate JWT Token
 const generateToken = (user) => {
@@ -246,5 +248,59 @@ exports.register = async (req, res) => {
         : "Kayıt sırasında bir hata oluştu",
       error.statusCode || 500
     );
+  }
+};
+
+// Add managerLogin to exports
+exports.managerLogin = async (req, res, next) => {
+  try {
+    const { username, password } = req.body;
+
+    // Check if manager exists - explicitly select password field
+    const manager = await Manager.findOne({ username }).select("+password");
+    if (!manager) {
+      return next(createError(401, "Geçersiz kullanıcı adı veya şifre"));
+    }
+
+    // Check if manager is active
+    if (!manager.isActive) {
+      return next(createError(401, "Hesabınız pasif durumdadır"));
+    }
+
+    // Check password
+    const isPasswordCorrect = await manager.checkPassword(password);
+    if (!isPasswordCorrect) {
+      return next(createError(401, "Geçersiz kullanıcı adı veya şifre"));
+    }
+
+    // Update last login
+    manager.lastLogin = new Date();
+    await manager.save();
+
+    // Generate token
+    const token = jwt.sign(
+      {
+        id: manager._id,
+        role: "manager",
+      },
+      config.JWT_SECRET,
+      { expiresIn: "1d" }
+    );
+
+    res.status(200).json({
+      status: "success",
+      data: {
+        token,
+        manager: {
+          id: manager._id,
+          username: manager.username,
+          fullName: manager.fullName,
+          email: manager.email,
+          permissions: manager.permissions,
+        },
+      },
+    });
+  } catch (err) {
+    next(err);
   }
 };

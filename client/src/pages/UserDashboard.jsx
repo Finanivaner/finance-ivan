@@ -5,9 +5,12 @@ import {
   Typography,
   Grid,
   Paper,
-  Divider,
   CircularProgress,
   Alert,
+  Collapse,
+  IconButton,
+  Divider,
+  Chip,
 } from "@mui/material";
 import {
   AccountBalance,
@@ -16,12 +19,16 @@ import {
   Percent,
   TrendingUp,
   TrendingDown,
-  AccessTime,
-  CheckCircle,
-  AdminPanelSettings,
-  ArrowUpward,
-  ArrowDownward,
+  Close as CloseIcon,
+  Info as InfoIcon,
+  Warning as WarningIcon,
+  CheckCircle as CheckCircleIcon,
+  Error as ErrorIcon,
+  Campaign as CampaignIcon,
+  AccessTime as AccessTimeIcon,
 } from "@mui/icons-material";
+import { alpha, useTheme } from "@mui/material/styles";
+import PostList from "../components/posts/PostList";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
@@ -32,10 +39,13 @@ const UserDashboard = () => {
     withdrawals: 0,
     deliveryCount: 0,
     commissionRate: 20,
-    recentTransactions: [],
   });
+  const [announcements, setAnnouncements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [closedAnnouncements, setClosedAnnouncements] = useState(new Set());
+  const [announcementError, setAnnouncementError] = useState("");
+  const theme = useTheme();
 
   const fetchFinancialData = async () => {
     try {
@@ -61,13 +71,60 @@ const UserDashboard = () => {
     }
   };
 
+  const fetchAnnouncements = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      console.log("Fetching announcements...");
+      const response = await fetch(`${API_URL}/api/announcements/active`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Duyurular getirilemedi");
+      }
+
+      const data = await response.json();
+      console.log("Announcements response:", data);
+      if (data.success) {
+        setAnnouncements(data.data);
+        setAnnouncementError("");
+      }
+    } catch (err) {
+      console.error("Duyurular yüklenirken hata:", err);
+      setAnnouncementError(err.message);
+    }
+  };
+
   useEffect(() => {
     fetchFinancialData();
+    fetchAnnouncements();
     // Set up polling for real-time updates
-    const interval = setInterval(fetchFinancialData, 30000); // Poll every 30 seconds
+    const interval = setInterval(() => {
+      fetchFinancialData();
+      fetchAnnouncements();
+    }, 30000); // Poll every 30 seconds
 
     return () => clearInterval(interval);
   }, []);
+
+  const handleCloseAnnouncement = (id) => {
+    setClosedAnnouncements((prev) => new Set([...prev, id]));
+  };
+
+  const getAnnouncementIcon = (type) => {
+    switch (type) {
+      case "warning":
+        return <WarningIcon sx={{ color: "#f59e0b" }} />;
+      case "success":
+        return <CheckCircleIcon sx={{ color: "#10b981" }} />;
+      case "error":
+        return <ErrorIcon sx={{ color: "#ef4444" }} />;
+      default:
+        return <InfoIcon sx={{ color: "#3b82f6" }} />;
+    }
+  };
 
   const cards = [
     {
@@ -116,34 +173,16 @@ const UserDashboard = () => {
     },
   ];
 
-  // Add this helper function for formatting time differences
-  const getTimeAgo = (date) => {
-    const now = new Date();
-    const diff = now - new Date(date);
-    const minutes = Math.floor(diff / 60000);
-    const hours = Math.floor(minutes / 60);
-    const days = Math.floor(hours / 24);
-
-    if (days > 0) return `${days} gün önce`;
-    if (hours > 0) return `${hours} saat önce`;
-    if (minutes > 0) return `${minutes} dakika önce`;
-    return "Az önce";
-  };
-
-  // Add this helper function for transaction icons
-  const getTransactionIcon = (transaction) => {
-    if (transaction.adminAction) {
-      return <AdminPanelSettings sx={{ fontSize: 20, color: "#8b5cf6" }} />;
-    }
-
-    switch (transaction.type) {
-      case "delivery":
-        return <LocalShipping sx={{ fontSize: 20, color: "#8b5cf6" }} />;
-      case "withdrawal":
-        return <AccountBalance sx={{ fontSize: 20, color: "#10b981" }} />;
-      default:
-        return <MonetizationOn sx={{ fontSize: 20, color: "#3b82f6" }} />;
-    }
+  // Format the announcement date
+  const formatAnnouncementDate = (date) => {
+    const options = {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    };
+    return new Date(date).toLocaleDateString("tr-TR", options);
   };
 
   if (loading) {
@@ -156,13 +195,7 @@ const UserDashboard = () => {
 
   return (
     <Box className="min-h-screen bg-[#0f172a] py-12">
-      <Container maxWidth="lg">
-        {error && (
-          <Alert severity="error" sx={{ mb: 4 }}>
-            {error}
-          </Alert>
-        )}
-
+      <Container maxWidth="lg" sx={{ py: 4 }}>
         {/* Welcome Section */}
         <Box sx={{ mb: 6 }}>
           <Typography
@@ -187,7 +220,7 @@ const UserDashboard = () => {
         </Box>
 
         {/* Stats Cards */}
-        <Grid container spacing={3} sx={{ mb: 6 }}>
+        <Grid container spacing={3} sx={{ mb: 4 }}>
           {cards.map((card, index) => (
             <Grid item xs={12} sm={6} md={3} key={index}>
               <Paper
@@ -250,7 +283,7 @@ const UserDashboard = () => {
                       ) : null}
                       <Typography
                         sx={{
-                          fontSize: "0.75rem",
+                          fontSize: "0.875rem",
                           color:
                             card.trendDirection === "up"
                               ? "#10b981"
@@ -265,13 +298,13 @@ const UserDashboard = () => {
                   </Box>
                   <Box
                     sx={{
-                      p: 1.5,
-                      borderRadius: "16px",
+                      width: 48,
+                      height: 48,
+                      borderRadius: "12px",
                       bgcolor: card.iconBg,
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      boxShadow: `0 4px 12px -2px ${card.borderColor}`,
                     }}
                   >
                     {card.icon}
@@ -282,250 +315,240 @@ const UserDashboard = () => {
           ))}
         </Grid>
 
-        {/* Recent Activity Section */}
-        <Paper
-          elevation={0}
-          sx={{
-            p: 4,
-            background: "rgba(30, 41, 59, 0.5)",
-            border: "1px solid rgba(255, 255, 255, 0.1)",
-            borderRadius: "20px",
-            backdropFilter: "blur(20px)",
-          }}
-        >
-          <Typography
-            variant="h6"
+        {/* Announcements Section */}
+        <Box sx={{ mb: 4 }}>
+          <Paper
+            elevation={0}
             sx={{
-              color: "white",
-              fontWeight: 600,
               mb: 3,
+              p: 2,
+              background: `linear-gradient(135deg, ${alpha(
+                theme.palette.primary.main,
+                0.1
+              )} 0%, ${alpha(theme.palette.background.paper, 0.8)} 100%)`,
+              borderRadius: 3,
+              border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
+              display: "flex",
+              alignItems: "center",
+              gap: 2,
             }}
           >
-            Son İşlemler
-          </Typography>
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            {financialData.recentTransactions.map((transaction, index) => (
-              <React.Fragment key={index}>
-                {index > 0 && (
-                  <Divider
-                    sx={{
-                      borderColor: "rgba(255, 255, 255, 0.1)",
-                    }}
-                  />
-                )}
-                <Box
-                  sx={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    py: 1,
-                  }}
-                >
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                    <Box
-                      sx={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: "12px",
-                        bgcolor: transaction.adminAction
-                          ? "rgba(139, 92, 246, 0.1)"
-                          : "rgba(59, 130, 246, 0.1)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        position: "relative",
-                      }}
-                    >
-                      {getTransactionIcon(transaction)}
-                      {transaction.adminAction && (
+            <Box
+              sx={{
+                width: 48,
+                height: 48,
+                borderRadius: 2,
+                bgcolor: alpha(theme.palette.primary.main, 0.1),
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <CampaignIcon
+                sx={{
+                  color: theme.palette.primary.main,
+                  fontSize: 28,
+                  transform: "rotate(-10deg)",
+                }}
+              />
+            </Box>
+            <Box>
+              <Typography
+                variant="h5"
+                sx={{
+                  fontWeight: 600,
+                  background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.light} 100%)`,
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                }}
+              >
+                Duyurular
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Güncel bildirimleri buradan takip edebilirsiniz
+              </Typography>
+            </Box>
+            <Box
+              sx={{
+                ml: "auto",
+                px: 2,
+                py: 1,
+                borderRadius: 2,
+                bgcolor: alpha(theme.palette.primary.main, 0.1),
+                display: "flex",
+                alignItems: "center",
+                gap: 1,
+              }}
+            >
+              <Typography
+                variant="body2"
+                sx={{ color: theme.palette.primary.main, fontWeight: 500 }}
+              >
+                {announcements.length} Duyuru
+              </Typography>
+            </Box>
+          </Paper>
+          <Grid container spacing={2}>
+            {announcements.map(
+              (announcement) =>
+                !closedAnnouncements.has(announcement._id) && (
+                  <Grid item xs={12} key={announcement._id}>
+                    <Collapse in={true}>
+                      <Paper
+                        elevation={0}
+                        sx={{
+                          p: 3,
+                          background: `linear-gradient(135deg, ${alpha(
+                            theme.palette.background.paper,
+                            0.9
+                          )} 0%, ${alpha(
+                            theme.palette.background.paper,
+                            0.7
+                          )} 100%)`,
+                          backdropFilter: "blur(10px)",
+                          border: `1px solid ${alpha(
+                            theme.palette.primary.main,
+                            0.1
+                          )}`,
+                          borderRadius: 3,
+                          position: "relative",
+                          overflow: "hidden",
+                          "&::before": {
+                            content: '""',
+                            position: "absolute",
+                            top: 0,
+                            left: 0,
+                            width: "4px",
+                            height: "100%",
+                            background: theme.palette.primary.main,
+                            borderRadius: "4px 0 0 4px",
+                          },
+                        }}
+                      >
                         <Box
                           sx={{
-                            position: "absolute",
-                            right: -2,
-                            bottom: -2,
-                            width: 16,
-                            height: 16,
-                            borderRadius: "50%",
-                            bgcolor: "#8b5cf6",
                             display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
+                            justifyContent: "space-between",
+                            alignItems: "flex-start",
                           }}
                         >
-                          {transaction.newValue > transaction.previousValue ? (
-                            <ArrowUpward
-                              sx={{ fontSize: 12, color: "white" }}
-                            />
-                          ) : (
-                            <ArrowDownward
-                              sx={{ fontSize: 12, color: "white" }}
-                            />
-                          )}
-                        </Box>
-                      )}
-                    </Box>
-                    <Box>
-                      <Typography
-                        sx={{
-                          color: "white",
-                          fontWeight: 500,
-                          fontSize: "0.875rem",
-                        }}
-                      >
-                        {transaction.adminAction ? (
-                          <Box
-                            component="span"
-                            sx={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 1,
-                            }}
-                          >
-                            Admin Güncellemesi
-                            <Box
-                              component="span"
+                          <Box sx={{ flex: 1, pr: 3 }}>
+                            <Typography
+                              variant="body1"
                               sx={{
-                                fontSize: "0.75rem",
-                                px: 1,
-                                py: 0.5,
-                                borderRadius: "4px",
-                                bgcolor: "rgba(139, 92, 246, 0.1)",
-                                color: "#8b5cf6",
+                                color: theme.palette.text.primary,
+                                fontSize: "1rem",
+                                lineHeight: 1.6,
+                                mb: 2,
                               }}
                             >
-                              {transaction.type === "earning"
-                                ? "Kazanç"
-                                : transaction.type === "withdrawal"
-                                ? "Çekim"
-                                : "Teslimat"}
+                              {announcement.content}
+                            </Typography>
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 2,
+                              }}
+                            >
+                              <Box
+                                sx={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 1,
+                                }}
+                              >
+                                <AccessTimeIcon
+                                  sx={{
+                                    fontSize: 16,
+                                    color: theme.palette.text.secondary,
+                                  }}
+                                />
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                >
+                                  {formatAnnouncementDate(
+                                    announcement.createdAt
+                                  )}
+                                </Typography>
+                              </Box>
+                              <Chip
+                                size="small"
+                                label="Yeni"
+                                color="primary"
+                                variant="outlined"
+                                sx={{
+                                  height: 24,
+                                  "& .MuiChip-label": {
+                                    px: 1,
+                                    fontSize: "0.75rem",
+                                  },
+                                }}
+                              />
                             </Box>
                           </Box>
-                        ) : transaction.type === "earning" ? (
-                          "Kazanç"
-                        ) : transaction.type === "withdrawal" ? (
-                          "Çekim"
-                        ) : (
-                          "Teslimat"
-                        )}
-                      </Typography>
-                      <Box
-                        sx={{ display: "flex", alignItems: "center", gap: 1 }}
-                      >
-                        <AccessTime
-                          sx={{
-                            fontSize: 14,
-                            color: "rgba(255, 255, 255, 0.5)",
-                          }}
-                        />
-                        <Typography
-                          sx={{
-                            color: "rgba(255, 255, 255, 0.5)",
-                            fontSize: "0.75rem",
-                          }}
-                        >
-                          {getTimeAgo(transaction.date)}
-                        </Typography>
-                        {transaction.adminAction && (
-                          <Typography
+                          <IconButton
+                            onClick={() =>
+                              handleCloseAnnouncement(announcement._id)
+                            }
                             sx={{
-                              color: "rgba(255, 255, 255, 0.5)",
-                              fontSize: "0.75rem",
+                              color: theme.palette.text.secondary,
+                              "&:hover": {
+                                color: theme.palette.error.main,
+                                bgcolor: alpha(theme.palette.error.main, 0.1),
+                              },
+                              transition: "all 0.2s ease",
                             }}
                           >
-                            • {transaction.description}
-                          </Typography>
-                        )}
-                      </Box>
-                    </Box>
-                  </Box>
-                  <Box sx={{ textAlign: "right" }}>
-                    {transaction.type !== "delivery" && (
-                      <Typography
-                        sx={{
-                          color: "white",
-                          fontWeight: 600,
-                          fontSize: "0.875rem",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 0.5,
-                          justifyContent: "flex-end",
-                        }}
-                      >
-                        {transaction.adminAction && (
-                          <Typography
-                            component="span"
-                            sx={{
-                              fontSize: "0.75rem",
-                              color: "rgba(255, 255, 255, 0.5)",
-                            }}
-                          >
-                            {transaction.previousValue.toFixed(2)} →
-                          </Typography>
-                        )}
-                        ₺
-                        {transaction.newValue?.toFixed(2) ||
-                          transaction.amount.toFixed(2)}
-                      </Typography>
-                    )}
-                    {transaction.type === "delivery" &&
-                      transaction.adminAction && (
-                        <Typography
-                          sx={{
-                            color: "white",
-                            fontWeight: 600,
-                            fontSize: "0.875rem",
-                          }}
-                        >
-                          {transaction.previousValue} → {transaction.newValue}
-                        </Typography>
-                      )}
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 0.5,
-                        justifyContent: "flex-end",
-                      }}
-                    >
-                      <CheckCircle
-                        sx={{
-                          fontSize: 14,
-                          color: transaction.adminAction
-                            ? "#8b5cf6"
-                            : transaction.status === "completed"
-                            ? "#10b981"
-                            : transaction.status === "pending"
-                            ? "#f59e0b"
-                            : "#ef4444",
-                        }}
-                      />
-                      <Typography
-                        sx={{
-                          fontSize: "0.75rem",
-                          color: transaction.adminAction
-                            ? "#8b5cf6"
-                            : transaction.status === "completed"
-                            ? "#10b981"
-                            : transaction.status === "pending"
-                            ? "#f59e0b"
-                            : "#ef4444",
-                        }}
-                      >
-                        {transaction.adminAction
-                          ? "Admin"
-                          : transaction.status === "completed"
-                          ? "Tamamlandı"
-                          : transaction.status === "pending"
-                          ? "İşleniyor"
-                          : "Başarısız"}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Box>
-              </React.Fragment>
-            ))}
-          </Box>
-        </Paper>
+                            <CloseIcon fontSize="small" />
+                          </IconButton>
+                        </Box>
+                      </Paper>
+                    </Collapse>
+                  </Grid>
+                )
+            )}
+          </Grid>
+        </Box>
+
+        {/* Posts Section */}
+        <Box sx={{ mb: 4 }}>
+          <Paper
+            elevation={0}
+            sx={{
+              p: 2,
+              background: `linear-gradient(135deg, ${alpha(
+                theme.palette.background.paper,
+                0.9
+              )} 0%, ${alpha(theme.palette.background.paper, 0.7)} 100%)`,
+              backdropFilter: "blur(10px)",
+              border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
+              borderRadius: 3,
+              mb: 2,
+            }}
+          >
+            <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+              <CampaignIcon
+                sx={{
+                  fontSize: 32,
+                  mr: 2,
+                  transform: "rotate(-10deg)",
+                  color: theme.palette.primary.main,
+                }}
+              />
+              <Box>
+                <Typography variant="h6" gutterBottom sx={{ mb: 0 }}>
+                  Gönderiler
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Topluluğumuzun paylaşımları
+                </Typography>
+              </Box>
+            </Box>
+          </Paper>
+          <PostList />
+        </Box>
       </Container>
     </Box>
   );

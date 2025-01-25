@@ -17,6 +17,9 @@ const getAllUsers = async (req, res, next) => {
         "lastLogin",
         "ibanPayment",
         "cryptoPayment",
+        "earnings",
+        "withdrawals",
+        "deliveryCount",
       ])
       .sort({ createdAt: -1 });
 
@@ -373,6 +376,179 @@ const updateUser = async (req, res, next) => {
   }
 };
 
+const getReports = async (req, res, next) => {
+  try {
+    logger.info("Admin fetching financial reports");
+
+    // Get current date boundaries
+    const now = new Date();
+
+    // Daily - Start of today (00:00:00) to now
+    const startOfDay = new Date(now);
+    startOfDay.setHours(0, 0, 0, 0);
+
+    // Weekly - Last 7 days from now
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - 7);
+
+    // Monthly - Start of current month
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    // Get daily transactions
+    const dailyTransactions = await User.aggregate([
+      {
+        $match: {
+          isVerified: true,
+          verificationStatus: "approved",
+        },
+      },
+      {
+        $project: {
+          dailyEarnings: {
+            $cond: [{ $gte: ["$updatedAt", startOfDay] }, "$earnings", 0],
+          },
+          dailyWithdrawals: {
+            $cond: [{ $gte: ["$updatedAt", startOfDay] }, "$withdrawals", 0],
+          },
+          dailyTransactions: {
+            $size: {
+              $filter: {
+                input: { $ifNull: ["$transactions", []] },
+                as: "transaction",
+                cond: { $gte: ["$$transaction.date", startOfDay] },
+              },
+            },
+          },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalIncome: { $sum: "$dailyEarnings" },
+          totalExpense: { $sum: "$dailyWithdrawals" },
+          transactionCount: { $sum: "$dailyTransactions" },
+        },
+      },
+    ]);
+
+    // Get weekly transactions
+    const weeklyTransactions = await User.aggregate([
+      {
+        $match: {
+          isVerified: true,
+          verificationStatus: "approved",
+        },
+      },
+      {
+        $project: {
+          weeklyEarnings: {
+            $cond: [{ $gte: ["$updatedAt", startOfWeek] }, "$earnings", 0],
+          },
+          weeklyWithdrawals: {
+            $cond: [{ $gte: ["$updatedAt", startOfWeek] }, "$withdrawals", 0],
+          },
+          weeklyTransactions: {
+            $size: {
+              $filter: {
+                input: { $ifNull: ["$transactions", []] },
+                as: "transaction",
+                cond: { $gte: ["$$transaction.date", startOfWeek] },
+              },
+            },
+          },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalIncome: { $sum: "$weeklyEarnings" },
+          totalExpense: { $sum: "$weeklyWithdrawals" },
+          transactionCount: { $sum: "$weeklyTransactions" },
+        },
+      },
+    ]);
+
+    // Get monthly transactions
+    const monthlyTransactions = await User.aggregate([
+      {
+        $match: {
+          isVerified: true,
+          verificationStatus: "approved",
+        },
+      },
+      {
+        $project: {
+          monthlyEarnings: {
+            $cond: [{ $gte: ["$updatedAt", startOfMonth] }, "$earnings", 0],
+          },
+          monthlyWithdrawals: {
+            $cond: [{ $gte: ["$updatedAt", startOfMonth] }, "$withdrawals", 0],
+          },
+          monthlyTransactions: {
+            $size: {
+              $filter: {
+                input: { $ifNull: ["$transactions", []] },
+                as: "transaction",
+                cond: { $gte: ["$$transaction.date", startOfMonth] },
+              },
+            },
+          },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalIncome: { $sum: "$monthlyEarnings" },
+          totalExpense: { $sum: "$monthlyWithdrawals" },
+          transactionCount: { $sum: "$monthlyTransactions" },
+        },
+      },
+    ]);
+
+    // Calculate commission rates (10% of income)
+    const calculateCommission = (income) => income * 0.1;
+
+    // Prepare the response with proper defaults
+    const reports = {
+      daily: {
+        totalIncome: dailyTransactions[0]?.totalIncome || 0,
+        totalExpense: dailyTransactions[0]?.totalExpense || 0,
+        totalCommission: calculateCommission(
+          dailyTransactions[0]?.totalIncome || 0
+        ),
+        transactionCount: dailyTransactions[0]?.transactionCount || 0,
+      },
+      weekly: {
+        totalIncome: weeklyTransactions[0]?.totalIncome || 0,
+        totalExpense: weeklyTransactions[0]?.totalExpense || 0,
+        totalCommission: calculateCommission(
+          weeklyTransactions[0]?.totalIncome || 0
+        ),
+        transactionCount: weeklyTransactions[0]?.transactionCount || 0,
+      },
+      monthly: {
+        totalIncome: monthlyTransactions[0]?.totalIncome || 0,
+        totalExpense: monthlyTransactions[0]?.totalExpense || 0,
+        totalCommission: calculateCommission(
+          monthlyTransactions[0]?.totalIncome || 0
+        ),
+        transactionCount: monthlyTransactions[0]?.transactionCount || 0,
+      },
+    };
+
+    logger.info("Reports generated successfully", { reports });
+
+    res.status(200).json({
+      success: true,
+      data: reports,
+      message: "Raporlar başarıyla getirildi",
+    });
+  } catch (error) {
+    logger.error(`Error fetching reports: ${error.message}`);
+    next(createError(500, "Raporlar getirilirken bir hata oluştu"));
+  }
+};
+
 module.exports = {
   getAllUsers,
   getUserDetails,
@@ -383,4 +559,5 @@ module.exports = {
   getDashboardStats,
   deleteUser,
   updateUser,
+  getReports,
 };

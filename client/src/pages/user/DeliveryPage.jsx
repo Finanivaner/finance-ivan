@@ -1,295 +1,159 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   Box,
-  Button,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
+  Container,
   Typography,
-  CircularProgress,
-  Chip,
-  IconButton,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
+  Paper,
+  Grid,
+  useTheme,
 } from "@mui/material";
 import {
-  Add as AddIcon,
+  CloudUpload as CloudUploadIcon,
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
-  PendingActions as PendingIcon,
-  Receipt as ReceiptIcon,
-  Delete as DeleteIcon,
-  Warning as WarningIcon,
+  PendingActions,
 } from "@mui/icons-material";
-import axios from "axios";
-import { toast } from "react-toastify";
-import { useNavigate } from "react-router-dom";
+import DeliverySection from "../../components/DeliverySection";
 
-const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
-
-const DeliveryPage = () => {
-  const navigate = useNavigate();
-  const [deliveries, setDeliveries] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [selectedDelivery, setSelectedDelivery] = useState(null);
-  const [error, setError] = useState(null);
-
-  const fetchDeliveries = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await axios.get(
-        `${API_URL}/api/delivery/my-deliveries`,
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        }
-      );
-
-      if (response.data.success) {
-        setDeliveries(response.data.data?.deliveries || []);
-      }
-    } catch (error) {
-      console.error("Error fetching deliveries:", error);
-      setError("Teslimatlar yüklenirken bir hata oluştu");
-      toast.error("Teslimatlar yüklenirken bir hata oluştu");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchDeliveries();
-  }, []);
-
-  const handleViewReceipt = async (deliveryId) => {
-    try {
-      const response = await axios.get(
-        `${API_URL}/api/delivery/receipt/${deliveryId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-          responseType: "blob",
-        }
-      );
-
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute("download", "receipt.pdf");
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
-      toast.error("Fiş görüntülenirken bir hata oluştu");
-    }
-  };
-
-  const handleDeleteClick = (delivery) => {
-    setSelectedDelivery(delivery);
-    setDeleteDialogOpen(true);
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (!selectedDelivery) return;
-
-    try {
-      const response = await axios.delete(
-        `${API_URL}/api/delivery/${selectedDelivery._id}`,
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        }
-      );
-
-      if (response.data.success) {
-        await fetchDeliveries();
-        toast.success("Teslimat başarıyla silindi");
-      }
-    } catch (error) {
-      console.error("Delete error:", error);
-      toast.error("Teslimat silinirken bir hata oluştu");
-    } finally {
-      setDeleteDialogOpen(false);
-      setSelectedDelivery(null);
-    }
-  };
-
-  const getStatusChip = (status) => {
-    const statusConfig = {
-      approved: {
-        color: "success",
-        label: "Onaylandı",
-        icon: <CheckCircleIcon />,
-      },
-      rejected: {
-        color: "error",
-        label: "Reddedildi",
-        icon: <CancelIcon />,
-      },
-      pending: {
-        color: "warning",
-        label: "Beklemede",
-        icon: <PendingIcon />,
-      },
-    };
-
-    const config = statusConfig[status] || statusConfig.pending;
-
-    return (
-      <Chip
-        icon={config.icon}
-        label={config.label}
-        color={config.color}
-        size="small"
-        variant="outlined"
-      />
-    );
-  };
-
-  if (loading) {
-    return (
-      <Box
-        display="flex"
-        justifyContent="center"
-        alignItems="center"
-        minHeight="400px"
-      >
-        <CircularProgress />
-      </Box>
-    );
-  }
-
-  if (error) {
-    return (
-      <Box
-        display="flex"
-        justifyContent="center"
-        alignItems="center"
-        minHeight="400px"
-      >
-        <Typography color="error">{error}</Typography>
-      </Box>
-    );
-  }
-
+const StatCard = ({ icon, title, value, color, bgColor }) => {
   return (
-    <Box>
+    <Paper
+      elevation={0}
+      sx={{
+        p: 3,
+        height: "100%",
+        background: bgColor,
+        borderRadius: 4,
+        display: "flex",
+        flexDirection: "column",
+        position: "relative",
+        overflow: "hidden",
+        transition: "transform 0.2s ease-in-out",
+        "&:hover": {
+          transform: "translateY(-4px)",
+        },
+      }}
+    >
       <Box
         sx={{
-          mb: 4,
+          position: "absolute",
+          top: -15,
+          right: -15,
+          width: 90,
+          height: 90,
+          borderRadius: "50%",
+          background: `linear-gradient(45deg, ${color}22, ${color}11)`,
           display: "flex",
-          justifyContent: "space-between",
           alignItems: "center",
+          justifyContent: "center",
         }}
       >
-        <Typography variant="h5" component="h1">
-          Teslimatlarım
-        </Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => navigate("/dashboard/delivery/request")}
-        >
-          Yeni Teslimat
-        </Button>
+        {icon}
       </Box>
+      <Typography variant="body2" color="text.secondary" mb={1}>
+        {title}
+      </Typography>
+      <Typography variant="h4" fontWeight="bold" color={color}>
+        {value}
+      </Typography>
+    </Paper>
+  );
+};
 
-      <TableContainer component={Paper}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Tarih</TableCell>
-              <TableCell>Durum</TableCell>
-              <TableCell>Fiş</TableCell>
-              <TableCell>Not</TableCell>
-              <TableCell>İşlemler</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {deliveries.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} align="center">
-                  <Typography variant="body1" sx={{ py: 2 }}>
-                    Henüz teslimat bulunmamaktadır
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            ) : (
-              deliveries.map((delivery) => (
-                <TableRow key={delivery._id}>
-                  <TableCell>
-                    {new Date(delivery.submittedAt).toLocaleString("tr-TR")}
-                  </TableCell>
-                  <TableCell>{getStatusChip(delivery.status)}</TableCell>
-                  <TableCell>
-                    <IconButton
-                      onClick={() => handleViewReceipt(delivery._id)}
-                      size="small"
-                    >
-                      <ReceiptIcon />
-                    </IconButton>
-                  </TableCell>
-                  <TableCell>{delivery.rejectionReason || "-"}</TableCell>
-                  <TableCell>
-                    {delivery.status === "pending" && (
-                      <IconButton
-                        onClick={() => handleDeleteClick(delivery)}
-                        size="small"
-                        color="error"
-                      >
-                        <DeleteIcon />
-                      </IconButton>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+const DeliveryPage = () => {
+  const theme = useTheme();
+  const [counts, setCounts] = useState({
+    approved: 0,
+    pending: 0,
+    rejected: 0,
+  });
 
-      <Dialog
-        open={deleteDialogOpen}
-        onClose={() => setDeleteDialogOpen(false)}
-        maxWidth="xs"
-        fullWidth
-      >
-        <DialogTitle>
-          <Box display="flex" alignItems="center" gap={1}>
-            <WarningIcon color="warning" />
-            <Typography>Teslimat Silme Onayı</Typography>
-          </Box>
-        </DialogTitle>
-        <DialogContent>
-          <Typography>
-            Bu teslimatı silmek istediğinizden emin misiniz? Bu işlem geri
-            alınamaz.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)}>İptal</Button>
-          <Button
-            onClick={handleDeleteConfirm}
-            color="error"
-            variant="contained"
+  const handleUpdateCounts = (newCounts) => {
+    setCounts(newCounts);
+  };
+
+  return (
+    <Container maxWidth="lg">
+      <Box py={4}>
+        <Box mb={4}>
+          <Typography
+            variant="h4"
+            component="h1"
+            gutterBottom
+            sx={{
+              fontWeight: 700,
+              background: "linear-gradient(45deg, #3b82f6, #60a5fa)",
+              backgroundClip: "text",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              textShadow: "0px 2px 5px rgba(0,0,0,0.2)",
+            }}
           >
-            Sil
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
+            Teslimat Merkezi
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            Teslimat fişlerinizi yönetin ve durumlarını anlık olarak takip edin
+          </Typography>
+        </Box>
+
+        <Grid container spacing={3} mb={4}>
+          <Grid item xs={12} sm={6} md={4}>
+            <StatCard
+              icon={
+                <CheckCircleIcon
+                  sx={{ fontSize: 32, color: theme.palette.success.main }}
+                />
+              }
+              title="Onaylanan Teslimatlar"
+              value={counts.approved}
+              color={theme.palette.success.main}
+              bgColor={theme.palette.success.main + "0a"}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={4}>
+            <StatCard
+              icon={
+                <PendingActions
+                  sx={{ fontSize: 32, color: theme.palette.warning.main }}
+                />
+              }
+              title="Bekleyen Teslimatlar"
+              value={counts.pending}
+              color={theme.palette.warning.main}
+              bgColor={theme.palette.warning.main + "0a"}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={4}>
+            <StatCard
+              icon={
+                <CancelIcon
+                  sx={{ fontSize: 32, color: theme.palette.error.main }}
+                />
+              }
+              title="Reddedilen Teslimatlar"
+              value={counts.rejected}
+              color={theme.palette.error.main}
+              bgColor={theme.palette.error.main + "0a"}
+            />
+          </Grid>
+        </Grid>
+
+        <Paper
+          elevation={0}
+          sx={{
+            borderRadius: 4,
+            background:
+              "linear-gradient(145deg, rgba(30,41,59,0.9), rgba(30,41,59,0.7))",
+            backdropFilter: "blur(20px)",
+            border: "1px solid rgba(255,255,255,0.1)",
+          }}
+        >
+          <Box p={3}>
+            <DeliverySection onUpdateCounts={handleUpdateCounts} />
+          </Box>
+        </Paper>
+      </Box>
+    </Container>
   );
 };
 

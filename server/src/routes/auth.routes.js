@@ -25,9 +25,20 @@ const registerValidation = [
   check("role").optional().isIn(["user", "manager", "admin"]),
 ];
 
+// Manager login validation
+const managerLoginValidation = [
+  check("username", "Lütfen geçerli bir kullanıcı adı girin").not().isEmpty(),
+  check("password", "Şifre zorunludur").exists(),
+];
+
 // Auth routes
 router.post("/admin/login", adminLoginValidation, authController.adminLogin);
 router.post("/login", userLoginValidation, authController.login);
 router.post("/register", registerValidation, authController.register);
+router.post(
+  "/manager/login",
+  managerLoginValidation,
+  authController.managerLogin
+);
 
 module.exports = router;

@@ -2,43 +2,28 @@ const mongoose = require("mongoose");
 
 const deliverySchema = new mongoose.Schema(
   {
-    userId: {
+    user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
     },
-    receiptFile: {
-      path: {
-        type: String,
-        required: true,
-      },
-      originalName: String,
-      mimeType: String,
-      size: Number,
+    receiptPath: {
+      type: String,
+      required: true,
     },
     status: {
       type: String,
       enum: ["pending", "approved", "rejected"],
       default: "pending",
     },
-    reviewedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Admin",
+    adminComment: {
+      type: String,
+      default: "",
     },
-    reviewedAt: Date,
-    rejectionReason: String,
-    notes: String,
   },
   {
     timestamps: true,
   }
 );
 
-// Indexes for better query performance
-deliverySchema.index({ userId: 1, status: 1 });
-deliverySchema.index({ createdAt: -1 });
-deliverySchema.index({ status: 1, createdAt: -1 });
-
-const Delivery = mongoose.model("Delivery", deliverySchema);
-
-module.exports = Delivery;
+module.exports = mongoose.model("Delivery", deliverySchema);

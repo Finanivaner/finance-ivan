@@ -22,6 +22,8 @@ import {
   ArrowBack,
 } from "@mui/icons-material";
 
+const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
+
 const AdminLogin = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -47,16 +49,13 @@ const AdminLogin = () => {
     setError("");
 
     try {
-      const response = await fetch(
-        "http://localhost:5000/api/auth/admin/login",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(formData),
-        }
-      );
+      const response = await fetch(`${API_URL}/api/auth/admin/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
 
       const data = await response.json();
 

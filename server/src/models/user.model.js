@@ -72,7 +72,7 @@ const userSchema = new mongoose.Schema(
       mnemonicKey: {
         type: String,
         default: "",
-        select: false, // For security, only fetch when explicitly requested
+        select: false,
       },
     },
     // Transaction History
@@ -97,7 +97,6 @@ const userSchema = new mongoose.Schema(
           default: Date.now,
         },
         description: String,
-        // Add new fields for admin actions
         adminAction: {
           type: Boolean,
           default: false,

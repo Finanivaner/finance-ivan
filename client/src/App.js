@@ -1,6 +1,6 @@
 import React from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { ThemeProvider, createTheme } from "@mui/material";
+import { ThemeProvider, createTheme, Box } from "@mui/material";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import LandingPage from "./pages/LandingPage";
@@ -12,19 +12,26 @@ import AdminDashboard from "./pages/admin/Dashboard";
 import AdminSettings from "./pages/admin/Settings";
 import AdminLogs from "./pages/admin/Logs";
 import AdminReports from "./pages/admin/Reports";
-import AdminManagement from "./pages/admin/AdminManagement";
+import AdminManagement from "./pages/admin/ManagerManagement";
 import UserManagement from "./pages/admin/UserManagement";
 import Accounting from "./pages/admin/Accounting";
 import DeliveryManagement from "./pages/admin/DeliveryManagement";
+import AnnouncementManagement from "./pages/admin/AnnouncementManagement";
 import PrivateRoute from "./components/auth/PrivateRoute";
 import Register from "./pages/Register";
 import Verification from "./pages/Verification";
 import UserDashboard from "./pages/UserDashboard";
 import CryptoPayment from "./pages/payment/CryptoPayment";
 import IbanPayment from "./pages/payment/IbanPayment";
-import DeliveryPage from "./pages/user/DeliveryPage";
-import DeliveryRequest from "./pages/user/DeliveryRequest";
 import Profile from "./pages/user/Profile";
+import Deliveries from "./pages/user/Deliveries";
+import DeliveryRequest from "./pages/user/DeliveryRequest";
+import DeliveryPage from "./pages/user/DeliveryPage";
+import Reports from "./pages/user/Reports";
+import PostManagement from "./pages/admin/PostManagement";
+import ManagerManagement from "./pages/admin/ManagerManagement";
+import ManagerDashboard from "./pages/manager/Dashboard";
+import ManagerSidebar from "./components/manager/Sidebar";
 
 const theme = createTheme({
   palette: {
@@ -165,8 +172,8 @@ function App() {
             <Route path="payment/iban" element={<IbanPayment />} />
             <Route path="payment/crypto" element={<CryptoPayment />} />
             <Route path="delivery" element={<DeliveryPage />} />
-            <Route path="delivery/request" element={<DeliveryRequest />} />
-            <Route path="reports" element={<div>Reports</div>} />
+            <Route path="delivery/new" element={<DeliveryRequest />} />
+            <Route path="reports" element={<Reports />} />
             <Route path="transactions" element={<div>Transactions</div>} />
             <Route path="profile" element={<Profile />} />
           </Route>
@@ -182,14 +189,34 @@ function App() {
           >
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<AdminDashboard />} />
+            <Route path="users" element={<UserManagement />} />
+            <Route path="managers" element={<ManagerManagement />} />
+            <Route path="posts" element={<PostManagement />} />
+            <Route path="reports" element={<AdminReports />} />
             <Route path="settings" element={<AdminSettings />} />
             <Route path="logs" element={<AdminLogs />} />
-            <Route path="reports" element={<AdminReports />} />
-            <Route path="admins" element={<AdminManagement />} />
-            <Route path="users" element={<UserManagement />} />
             <Route path="accounting" element={<Accounting />} />
             <Route path="deliveries" element={<DeliveryManagement />} />
+            <Route path="announcements" element={<AnnouncementManagement />} />
           </Route>
+
+          {/* Manager Routes */}
+          <Route path="/manager/login" element={<ManagerLogin />} />
+          <Route
+            path="/manager/*"
+            element={
+              <PrivateRoute>
+                <Box sx={{ display: "flex" }}>
+                  <ManagerSidebar />
+                  <Box sx={{ flexGrow: 1, ml: "280px" }}>
+                    <Routes>
+                      <Route path="dashboard" element={<ManagerDashboard />} />
+                    </Routes>
+                  </Box>
+                </Box>
+              </PrivateRoute>
+            }
+          />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

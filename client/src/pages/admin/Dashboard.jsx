@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Box,
   Typography,
@@ -16,6 +16,14 @@ import {
   Button,
   Tooltip,
   CircularProgress,
+  Alert,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Chip,
 } from "@mui/material";
 import {
   PeopleAlt,
@@ -36,12 +44,18 @@ import {
   AttachMoney,
   CreditCard,
   Receipt,
+  Payment,
+  Percent,
 } from "@mui/icons-material";
 import axios from "axios";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
+import { alpha } from "@mui/material/styles";
 
 const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
+
+// Configure axios defaults
+axios.defaults.baseURL = API_URL;
 
 // Enhanced stat card component
 const StatCard = ({
@@ -239,327 +253,317 @@ const ActivityItem = ({ icon, primary, secondary, time, status, onClick }) => {
   );
 };
 
-const Dashboard = () => {
+const AdminDashboard = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [stats, setStats] = useState({
-    totalUsers: 0,
-    pendingVerifications: 0,
-    verifiedUsers: 0,
-    totalDeliveries: 0,
     totalEarnings: 0,
-    todayEarnings: 0,
-    monthlyEarnings: 0,
-    pendingPayments: 0,
-    completedPayments: 0,
-    recentActivities: [],
+    totalWithdrawals: 0,
+    totalUsers: 0,
+    totalManagers: 0,
     loading: true,
-    error: null,
   });
   const [refreshing, setRefreshing] = useState(false);
+  const [users, setUsers] = useState([]);
+  const [managers, setManagers] = useState([]);
+  const [error, setError] = useState(null);
 
-  useEffect(() => {
-    fetchDashboardData();
-    const interval = setInterval(fetchDashboardData, 300000); // Refresh every 5 minutes
-    return () => clearInterval(interval);
+  const fetchData = useCallback(async () => {
+    try {
+      setStats((prev) => ({ ...prev, loading: true }));
+      const token = localStorage.getItem("token");
+
+      // Fetch users and managers in parallel
+      const [usersResponse, managersResponse] = await Promise.all([
+        axios.get("/api/admin/users", {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        axios.get("/api/managers", {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      ]);
+
+      // Set users and managers
+      setUsers(usersResponse.data.data.users);
+      setManagers(managersResponse.data.data);
+
+      // Calculate totals
+      const totalEarnings = managersResponse.data.data.reduce(
+        (sum, manager) => sum + (manager.totalEarnings || 0),
+        0
+      );
+
+      const totalWithdrawals = managersResponse.data.data.reduce(
+        (sum, manager) => sum + (manager.totalWithdrawals || 0),
+        0
+      );
+
+      // Update stats
+      setStats({
+        totalEarnings,
+        totalWithdrawals,
+        totalUsers: usersResponse.data.data.users.length,
+        totalManagers: managersResponse.data.data.length,
+        loading: false,
+      });
+
+      setError(null);
+    } catch (err) {
+      console.error("Dashboard data fetch error:", err);
+      setError(
+        err.response?.data?.message ||
+          "Veriler yüklenirken bir hata oluştu. Lütfen daha sonra tekrar deneyin."
+      );
+      setStats((prev) => ({ ...prev, loading: false }));
+    }
   }, []);
 
-  const fetchDashboardData = async () => {
-    try {
-      setRefreshing(true);
-      const response = await axios.get(`${API_URL}/api/admin/dashboard`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-      });
+  useEffect(() => {
+    fetchData();
+    const interval = setInterval(fetchData, 30000); // Refresh every 30 seconds
+    return () => clearInterval(interval);
+  }, [fetchData]);
 
-      setStats({
-        totalUsers: response.data.totalUsers || 0,
-        pendingVerifications: response.data.pendingVerifications || 0,
-        verifiedUsers: response.data.verifiedUsers || 0,
-        totalDeliveries: response.data.totalDeliveries || 0,
-        totalEarnings: response.data.totalEarnings || 0,
-        todayEarnings: response.data.todayEarnings || 0,
-        monthlyEarnings: response.data.monthlyEarnings || 0,
-        pendingPayments: response.data.pendingPayments || 0,
-        completedPayments: response.data.completedPayments || 0,
-        recentActivities: response.data.recentActivities || [],
-        loading: false,
-        error: null,
-      });
-    } catch (error) {
-      setStats((prev) => ({
-        ...prev,
-        loading: false,
-        error: "Dashboard verilerini getirirken bir hata oluştu.",
-      }));
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
-  if (stats.loading) {
+  if (error) {
     return (
-      <Box sx={{ width: "100%", mt: 4 }}>
-        <LinearProgress />
+      <Box sx={{ p: 3 }}>
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
       </Box>
     );
   }
 
   return (
-    <Box sx={{ px: { xs: 2, sm: 3, md: 4 }, py: { xs: 2, sm: 3, md: 4 } }}>
+    <Box sx={{ p: 3 }}>
       {/* Header */}
-      <Box
-        sx={{
-          mb: { xs: 3, sm: 4, md: 5 },
-          display: "flex",
-          flexDirection: { xs: "column", sm: "row" },
-          alignItems: { xs: "flex-start", sm: "center" },
-          gap: { xs: 2, sm: 0 },
-          justifyContent: "space-between",
-        }}
-      >
-        <Box>
-          <Typography
-            variant={isMobile ? "h5" : "h4"}
-            gutterBottom
-            sx={{
-              fontWeight: "bold",
-              background: `linear-gradient(45deg, ${theme.palette.primary.main} 30%, ${theme.palette.secondary.main} 90%)`,
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-            }}
-          >
-            Yönetici Paneli
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {format(new Date(), "d MMMM yyyy, EEEE", { locale: tr })}
-          </Typography>
-        </Box>
-        <Button
-          variant="contained"
-          startIcon={<Refresh />}
-          onClick={fetchDashboardData}
-          disabled={refreshing}
+      <Box sx={{ mb: 4 }}>
+        <Typography
+          variant="h4"
           sx={{
-            borderRadius: 2,
-            textTransform: "none",
-            px: 3,
+            fontWeight: 700,
+            background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
           }}
         >
-          {refreshing ? "Yenileniyor..." : "Yenile"}
-        </Button>
+          Admin Paneli
+        </Typography>
+        <Typography variant="body1" sx={{ color: "text.secondary", mt: 1 }}>
+          Sistem istatistiklerini görüntüleyin
+        </Typography>
       </Box>
 
       {/* Stats Grid */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
-            title="Toplam Kullanıcı"
-            value={stats.totalUsers}
-            icon={<PeopleAlt />}
-            color={theme.palette.primary.main}
-            trend={12}
-            loading={stats.loading}
-            subtitle={`${stats.verifiedUsers} onaylı kullanıcı`}
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard
-            title="Onay Bekleyen"
-            value={stats.pendingVerifications}
-            icon={<PersonAdd />}
-            color={theme.palette.warning.main}
-            loading={stats.loading}
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard
-            title="Toplam Teslimat"
-            value={stats.totalDeliveries}
-            icon={<LocalShipping />}
-            color={theme.palette.success.main}
-            trend={8}
-            loading={stats.loading}
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard
-            title="Günlük Kazanç"
-            value={stats.todayEarnings}
-            icon={<AttachMoney />}
-            color={theme.palette.info.main}
-            prefix="₺"
-            loading={stats.loading}
-            subtitle={`Bu ay: ₺${stats.monthlyEarnings.toLocaleString(
-              "tr-TR"
-            )}`}
-          />
-        </Grid>
-      </Grid>
-
-      {/* Second Row Stats */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={4}>
-          <StatCard
             title="Toplam Kazanç"
-            value={stats.totalEarnings}
+            value={new Intl.NumberFormat("tr-TR", {
+              style: "currency",
+              currency: "TRY",
+            }).format(stats.totalEarnings || 0)}
             icon={<AccountBalance />}
-            color={theme.palette.success.main}
-            prefix="₺"
+            color={theme.palette.primary.main}
             loading={stats.loading}
           />
         </Grid>
-        <Grid item xs={12} sm={6} md={4}>
+        <Grid item xs={12} sm={6} md={3}>
           <StatCard
-            title="Bekleyen Ödemeler"
-            value={stats.pendingPayments}
-            icon={<CreditCard />}
-            color={theme.palette.warning.main}
-            prefix="₺"
-            loading={stats.loading}
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={4}>
-          <StatCard
-            title="Tamamlanan Ödemeler"
-            value={stats.completedPayments}
-            icon={<Receipt />}
+            title="Toplam Çekim"
+            value={new Intl.NumberFormat("tr-TR", {
+              style: "currency",
+              currency: "TRY",
+            }).format(stats.totalWithdrawals || 0)}
+            icon={<Payment />}
             color={theme.palette.info.main}
-            prefix="₺"
+            loading={stats.loading}
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <StatCard
+            title="Toplam Kullanıcı"
+            value={stats.totalUsers || 0}
+            icon={<PeopleAlt />}
+            color={theme.palette.success.main}
+            loading={stats.loading}
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <StatCard
+            title="Toplam Yönetici"
+            value={stats.totalManagers || 0}
+            icon={<Person />}
+            color={theme.palette.warning.main}
             loading={stats.loading}
           />
         </Grid>
       </Grid>
 
-      {/* Activity Timeline */}
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={8}>
-          <Paper
-            elevation={0}
-            sx={{
-              p: 3,
-              borderRadius: 4,
-              height: "100%",
-              border: "1px solid",
-              borderColor: theme.palette.divider,
-            }}
-          >
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                mb: 3,
-              }}
-            >
-              <Typography variant="h6" fontWeight="600">
-                Son Aktiviteler
-              </Typography>
-              <IconButton size="small">
-                <MoreVert />
-              </IconButton>
-            </Box>
-            <List>
-              {stats.recentActivities.map((activity, index) => (
-                <React.Fragment key={index}>
-                  <ActivityItem
-                    icon={
-                      activity.type === "verification" ? (
-                        <PersonAdd />
-                      ) : activity.type === "delivery" ? (
-                        <LocalShipping />
-                      ) : activity.type === "payment" ? (
-                        <Payments />
-                      ) : (
-                        <NotificationsActive />
-                      )
-                    }
-                    primary={activity.message}
-                    secondary={activity.user}
-                    time={format(new Date(activity.timestamp), "HH:mm")}
-                    status={activity.status}
-                    onClick={() => {
-                      /* Handle activity click */
-                    }}
-                  />
-                  {index < stats.recentActivities.length - 1 && (
-                    <Divider variant="inset" component="li" />
-                  )}
-                </React.Fragment>
+      {/* Users Table */}
+      <Typography
+        variant="h4"
+        sx={{
+          mb: 2,
+          fontWeight: 700,
+          background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
+          WebkitBackgroundClip: "text",
+          WebkitTextFillColor: "transparent",
+        }}
+      >
+        Kullanıcılar
+      </Typography>
+      <TableContainer
+        component={Paper}
+        sx={{
+          mb: 4,
+          borderRadius: 2,
+          background: alpha(theme.palette.background.paper, 0.8),
+          backdropFilter: "blur(8px)",
+        }}
+      >
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>Email</TableCell>
+              <TableCell>Durum</TableCell>
+              <TableCell>Kazanç</TableCell>
+              <TableCell>Çekim</TableCell>
+              <TableCell>Doğrulama Durumu</TableCell>
+              <TableCell>Son Giriş</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {users
+              .filter((user) => user.verificationStatus === "approved")
+              .map((user) => (
+                <TableRow key={user._id}>
+                  <TableCell>{user.email}</TableCell>
+                  <TableCell>
+                    <Chip
+                      label={user.isActive ? "Aktif" : "Pasif"}
+                      color={user.isActive ? "success" : "error"}
+                      size="small"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    {new Intl.NumberFormat("tr-TR", {
+                      style: "currency",
+                      currency: "TRY",
+                    }).format(user.earnings || 0)}
+                  </TableCell>
+                  <TableCell>
+                    {new Intl.NumberFormat("tr-TR", {
+                      style: "currency",
+                      currency: "TRY",
+                    }).format(user.withdrawals || 0)}
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={
+                        {
+                          pending: "Beklemede",
+                          submitted: "İnceleniyor",
+                          approved: "Onaylandı",
+                          rejected: "Reddedildi",
+                        }[user.verificationStatus] || "Beklemede"
+                      }
+                      color={
+                        {
+                          pending: "warning",
+                          submitted: "info",
+                          approved: "success",
+                          rejected: "error",
+                        }[user.verificationStatus] || "warning"
+                      }
+                      size="small"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    {user.lastLogin
+                      ? format(new Date(user.lastLogin), "dd.MM.yyyy HH:mm", {
+                          locale: tr,
+                        })
+                      : "-"}
+                  </TableCell>
+                </TableRow>
               ))}
-            </List>
-          </Paper>
-        </Grid>
-        <Grid item xs={12} md={4}>
-          <Paper
-            elevation={0}
-            sx={{
-              p: 3,
-              borderRadius: 4,
-              height: "100%",
-              border: "1px solid",
-              borderColor: theme.palette.divider,
-            }}
-          >
-            <Typography variant="h6" fontWeight="600" gutterBottom>
-              Hızlı İstatistikler
-            </Typography>
-            <Box sx={{ mt: 2 }}>
-              <Typography
-                variant="subtitle2"
-                color="text.secondary"
-                gutterBottom
-              >
-                Onaylı Kullanıcı Oranı
-              </Typography>
-              <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
-                <Box sx={{ flexGrow: 1, mr: 2 }}>
-                  <LinearProgress
-                    variant="determinate"
-                    value={(stats.verifiedUsers / stats.totalUsers) * 100}
-                    sx={{ height: 8, borderRadius: 4 }}
-                  />
-                </Box>
-                <Typography variant="body2" color="text.secondary">
-                  {Math.round((stats.verifiedUsers / stats.totalUsers) * 100)}%
-                </Typography>
-              </Box>
+          </TableBody>
+        </Table>
+      </TableContainer>
 
-              <Typography
-                variant="subtitle2"
-                color="text.secondary"
-                gutterBottom
-              >
-                Ödeme Tamamlanma Oranı
-              </Typography>
-              <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
-                <Box sx={{ flexGrow: 1, mr: 2 }}>
-                  <LinearProgress
-                    variant="determinate"
-                    value={
-                      (stats.completedPayments /
-                        (stats.completedPayments + stats.pendingPayments)) *
-                      100
-                    }
-                    sx={{ height: 8, borderRadius: 4 }}
+      {/* Managers Table */}
+      <Typography
+        variant="h4"
+        sx={{
+          mb: 2,
+          fontWeight: 700,
+          background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
+          WebkitBackgroundClip: "text",
+          WebkitTextFillColor: "transparent",
+        }}
+      >
+        Yöneticiler
+      </Typography>
+      <TableContainer
+        component={Paper}
+        sx={{
+          borderRadius: 2,
+          background: alpha(theme.palette.background.paper, 0.8),
+          backdropFilter: "blur(8px)",
+        }}
+      >
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>Ad Soyad</TableCell>
+              <TableCell>Email</TableCell>
+              <TableCell>Durum</TableCell>
+              <TableCell>Toplam Kazanç</TableCell>
+              <TableCell>Toplam Çekim</TableCell>
+              <TableCell>Komisyon Oranı</TableCell>
+              <TableCell>Son Giriş</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {managers.map((manager) => (
+              <TableRow key={manager._id}>
+                <TableCell>{manager.fullName}</TableCell>
+                <TableCell>{manager.email}</TableCell>
+                <TableCell>
+                  <Chip
+                    label={manager.isActive ? "Aktif" : "Pasif"}
+                    color={manager.isActive ? "success" : "error"}
+                    size="small"
                   />
-                </Box>
-                <Typography variant="body2" color="text.secondary">
-                  {Math.round(
-                    (stats.completedPayments /
-                      (stats.completedPayments + stats.pendingPayments)) *
-                      100
-                  )}
-                  %
-                </Typography>
-              </Box>
-            </Box>
-          </Paper>
-        </Grid>
-      </Grid>
+                </TableCell>
+                <TableCell>
+                  {new Intl.NumberFormat("tr-TR", {
+                    style: "currency",
+                    currency: "TRY",
+                  }).format(manager.totalEarnings || 0)}
+                </TableCell>
+                <TableCell>
+                  {new Intl.NumberFormat("tr-TR", {
+                    style: "currency",
+                    currency: "TRY",
+                  }).format(manager.totalWithdrawals || 0)}
+                </TableCell>
+                <TableCell>%{manager.commissionRate || 10}</TableCell>
+                <TableCell>
+                  {manager.lastLogin
+                    ? format(new Date(manager.lastLogin), "dd.MM.yyyy HH:mm", {
+                        locale: tr,
+                      })
+                    : "-"}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
     </Box>
   );
 };
 
-export default Dashboard;
+export default AdminDashboard;

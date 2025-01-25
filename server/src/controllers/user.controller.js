@@ -70,7 +70,8 @@ exports.updateCryptoDetails = async (req, res, next) => {
 // Get user's financial summary
 exports.getFinancialSummary = async (req, res, next) => {
   try {
-    const user = await User.findById(req.user.id).select(
+    const userId = req.user._id || req.user.id;
+    const user = await User.findById(userId).select(
       "earnings withdrawals deliveryCount commissionRate transactions"
     );
 
@@ -105,22 +106,21 @@ exports.changePassword = async (req, res, next) => {
       return next(createError(400, "Mevcut şifre ve yeni şifre gereklidir"));
     }
 
-    const user = await User.findById(req.user.id);
+    // Find user with password field explicitly selected
+    const user = await User.findById(req.user.id).select("+password");
 
     if (!user) {
       return next(createError(404, "Kullanıcı bulunamadı"));
     }
 
     // Check current password
-    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    const isMatch = await user.comparePassword(currentPassword);
     if (!isMatch) {
       return next(createError(400, "Mevcut şifre yanlış"));
     }
 
-    // Hash new password
-    const salt = await bcrypt.genSalt(10);
-    user.password = await bcrypt.hash(newPassword, salt);
-
+    // Update password - this will trigger the pre-save hook in the User model
+    user.password = newPassword;
     await user.save();
 
     res.status(200).json({

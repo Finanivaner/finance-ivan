@@ -25,6 +25,8 @@ import {
   Logout,
   ChevronRight,
   LocalShipping,
+  Campaign,
+  Forum,
 } from "@mui/icons-material";
 
 const menuItems = [
@@ -33,9 +35,9 @@ const menuItems = [
   { text: "Log Kayıtları", icon: <Description />, path: "/admin/logs" },
   { text: "Raporlar", icon: <Assessment />, path: "/admin/reports" },
   {
-    text: "Admin Yönetimi",
+    text: "Müdür Yönetimi",
     icon: <AdminPanelSettings />,
-    path: "/admin/admins",
+    path: "/admin/managers",
   },
   { text: "Kullanıcı Yönetimi", icon: <People />, path: "/admin/users" },
   { text: "Muhasebe", icon: <AccountBalance />, path: "/admin/accounting" },
@@ -43,6 +45,16 @@ const menuItems = [
     text: "Teslimatlar",
     icon: <LocalShipping />,
     path: "/admin/deliveries",
+  },
+  {
+    text: "Duyurular",
+    icon: <Campaign />,
+    path: "/admin/announcements",
+  },
+  {
+    text: "Gönderiler",
+    icon: <Forum />,
+    path: "/admin/posts",
   },
 ];
 

@@ -17,7 +17,10 @@ const verificationRoutes = require("./routes/verification.routes");
 const adminVerificationRoutes = require("./routes/admin/verification.routes");
 const adminRoutes = require("./routes/admin.routes");
 const userRoutes = require("./routes/user.routes");
-const deliveryRoutes = require("./routes/delivery.routes");
+const announcementRoutes = require("./routes/announcement.routes");
+const postRoutes = require("./routes/post.routes");
+const accountingRoutes = require("./routes/accounting.routes");
+const managerRoutes = require("./routes/manager.routes");
 
 class Server {
   constructor() {
@@ -33,9 +36,11 @@ class Server {
       // Create uploads directory if it doesn't exist
       const uploadsDir = path.join(__dirname, "../uploads");
       const receiptsDir = path.join(uploadsDir, "receipts");
+      const postsDir = path.join(uploadsDir, "posts");
 
       await fs.mkdir(uploadsDir, { recursive: true });
       await fs.mkdir(receiptsDir, { recursive: true });
+      await fs.mkdir(postsDir, { recursive: true });
 
       logger.info("✅ Upload directories created successfully");
     } catch (error) {
@@ -97,22 +102,26 @@ class Server {
   }
 
   setupRoutes() {
+    // Serve static files from uploads directory
+    this.app.use(
+      "/uploads",
+      express.static(path.join(__dirname, "../uploads"))
+    );
+
     // API Routes
     this.app.use("/api/auth", authRoutes);
     this.app.use("/api/verification", verificationRoutes);
-    this.app.use("/api/admin", adminRoutes);
     this.app.use("/api/admin/verification", adminVerificationRoutes);
+    this.app.use("/api/admin", adminRoutes);
     this.app.use("/api/users", userRoutes);
-    this.app.use("/api/delivery", deliveryRoutes);
+    this.app.use("/api/announcements", announcementRoutes);
+    this.app.use("/api/posts", postRoutes);
+    this.app.use("/api/accounting", accountingRoutes);
+    this.app.use("/api/managers", managerRoutes);
 
-    // Ana route
-    this.app.get("/", (req, res) => {
-      res.success(null, "Finans Yönetim Sistemi API'sine Hoş Geldiniz");
-    });
-
-    // 404 handler
-    this.app.all("*", (req, res) => {
-      res.error(null, `${req.originalUrl} - Bu endpoint bulunamadı`, 404);
+    // Handle 404
+    this.app.use((req, res, next) => {
+      next(createError(404, `${req.originalUrl} - Bu endpoint bulunamadı`));
     });
   }
 
